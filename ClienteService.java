@@ -4,7 +4,7 @@ import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Queue;
 
-public class ClienteInfo {
+public class ClienteService {
   private SocketChannel channel;
   private String nomeUsuario;
   private boolean conectado;
@@ -13,7 +13,7 @@ public class ClienteInfo {
   private ByteBuffer bufferEscritaAtual;
   private int tamanhoMensagemEsperado = -1;
 
-  public ClienteInfo(SocketChannel channel) {
+  public ClienteService(SocketChannel channel) {
     this.channel = channel;
     this.conectado = true;
     this.bufferLeitura = ByteBuffer.allocate(8192);
@@ -62,7 +62,7 @@ public class ClienteInfo {
       // Resetar para próxima mensagem
       tamanhoMensagemEsperado = -1;
 
-      // Compactar buffer para próximas leituras
+      // Compactar buffer para proximas leituras
       bufferLeitura.compact();
 
       // Deserializar mensagem
@@ -72,7 +72,7 @@ public class ClienteInfo {
       }
 
     } catch (IOException | ClassNotFoundException e) {
-      System.err.println("Erro ao deserializar mensagem: " + e.getMessage());
+      System.err.println("Erro ao desserializar mensagem: " + e.getMessage());
       bufferLeitura.compact();
       return null;
     }
@@ -110,7 +110,6 @@ public class ClienteInfo {
     }
   }
 
-  // Getters e Setters
   public SocketChannel getChannel() {
     return channel;
   }

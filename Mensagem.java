@@ -16,12 +16,14 @@ public class Mensagem implements Serializable {
   private String nomeGrupo;
   private byte[] dadosArquivo;
   private String nomeArquivo;
-  private boolean sucesso;             // Para respostas de sucesso/erro
+  private boolean sucesso;
+  private long timestamp;
 
   public Mensagem(TipoMensagem tipo, String remetente) {
     this.tipo = tipo;
     this.remetente = remetente;
-    this.sucesso = true; // Padrao é sucesso
+    this.sucesso = true; // Padrão é sucesso
+    this.timestamp = System.currentTimeMillis();
   }
 
   // Construtor para mensagens do servidor
@@ -92,5 +94,25 @@ public class Mensagem implements Serializable {
 
   public void setSucesso(boolean sucesso) {
     this.sucesso = sucesso;
+  }
+
+  public long getTimestamp() {
+    return timestamp;
+  }
+
+  public void setTimestamp(long timestamp) {
+    this.timestamp = timestamp;
+  }
+
+  @Override
+  public String toString() {
+    return "Mensagem{" +
+        "tipo=" + tipo +
+        ", remetente='" + remetente + '\'' +
+        ", destinatario='" + destinatario + '\'' +
+        ", conteudo='" + conteudo + '\'' +
+        ", nomeGrupo='" + nomeGrupo + '\'' +
+        ", timestamp=" + timestamp +
+        '}';
   }
 }

@@ -5,22 +5,25 @@ import java.nio.channels.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+// Classe principal do servidor de chat.
 public class Servidor {
   private static final int PORTA = 8080;
-  private static final int BUFFER_SIZE = 8192;
+  private static final int BUFFER_SIZE = 8192; // Tamanho do buffer de leitura/escrita.
 
-  private Selector selector;
-  private ServerSocketChannel serverChannel;
-  private Map<String, ClienteService> clientes;
-  private Map<String, Grupo> grupos;
-  private boolean executando;
+  private Selector selector; // Selector para multiplexação de canais.
+  private ServerSocketChannel serverChannel; // Canal do servidor.
+  private Map<String, ClienteService> clientes; // Mapa de clientes conectados (nome -> info).
+  private Map<String, Grupo> grupos; // Mapa de grupos (nome -> grupo).
+  private boolean executando; // Flag para controle do loop principal.
 
+  // Construtor da classe Servidor.
   public Servidor() {
     clientes = new ConcurrentHashMap<>();
     grupos = new ConcurrentHashMap<>();
     executando = false;
   }
 
+  // Inicia o servidor.
   public void iniciar() {
     try {
       selector = Selector.open();
@@ -33,7 +36,7 @@ public class Servidor {
       System.out.println("Servidor iniciado na porta " + PORTA);
       System.out.println("Aguardando conexoes\n");
 
-      // Loop principal - single thread
+      // Loop principal - single thread.
       while (executando) {
         int readyChannels = selector.select(1000); // timeout de 1 segundo
 
@@ -71,6 +74,7 @@ public class Servidor {
     }
   }
 
+  // Aceita uma nova conexão de cliente.
   private void aceitarConexao(SelectionKey key) throws IOException {
     ServerSocketChannel serverChannel = (ServerSocketChannel) key.channel();
     SocketChannel clientChannel = serverChannel.accept();
@@ -86,6 +90,7 @@ public class Servidor {
     }
   }
 
+  // Lê dados do canal do cliente.
   private void lerDados(SelectionKey key) throws IOException {
     SocketChannel clientChannel = (SocketChannel) key.channel();
     ClienteService clienteService = (ClienteService) key.attachment();
@@ -99,7 +104,7 @@ public class Servidor {
     int bytesRead = clientChannel.read(buffer);
 
     if (bytesRead == -1) {
-      // Cliente desconectou
+      // Cliente desconectou.
       fecharConexao(key);
       return;
     }
@@ -108,7 +113,7 @@ public class Servidor {
       buffer.flip();
       clienteService.adicionarDados(buffer);
 
-      // Tentar processar mensagens completas
+      // Tentar processar mensagens completas.
       Mensagem mensagem;
       while ((mensagem = clienteService.lerMensagem()) != null) {
         processarMensagem(mensagem, clienteService, key);
@@ -116,6 +121,7 @@ public class Servidor {
     }
   }
 
+  // Escreve dados no canal do cliente.
   private void escreverDados(SelectionKey key) throws IOException {
     SocketChannel clientChannel = (SocketChannel) key.channel();
     ClienteService clienteService = (ClienteService) key.attachment();
@@ -130,7 +136,7 @@ public class Servidor {
       clientChannel.write(buffer);
 
       if (!buffer.hasRemaining()) {
-        // Escrita completa, remover interesse em escrita
+        // Escrita completa, remover interesse em escrita.
         key.interestOps(SelectionKey.OP_READ);
         clienteService.limparBufferEscrita();
       }
@@ -140,6 +146,7 @@ public class Servidor {
     }
   }
 
+  // Processa uma mensagem recebida do cliente.
   private void processarMensagem(Mensagem mensagem, ClienteService clienteService, SelectionKey key) {
     switch (mensagem.getTipo()) {
       case LOGIN:
@@ -166,6 +173,7 @@ public class Servidor {
     }
   }
 
+  // Realiza o login do cliente.
   private void login(Mensagem mensagem, ClienteService clienteService, SelectionKey key) {
     String usuarioSolicitado = mensagem.getRemetente();
 
@@ -190,10 +198,12 @@ public class Servidor {
     System.out.println("Cliente conectado: " + usuarioSolicitado);
   }
 
+  // Realiza o logout do cliente.
   private void logout(ClienteService clienteService, SelectionKey key) {
     fecharConexao(key);
   }
 
+  // Envia uma mensagem privada de um cliente para outro.
   private void mensagemPrivada(Mensagem mensagem) {
     ClienteService destinatario = clientes.get(mensagem.getDestinatario());
     ClienteService remetente = clientes.get(mensagem.getRemetente());
@@ -216,12 +226,13 @@ public class Servidor {
     }
   }
 
+  // Envia uma mensagem para todos os membros de um grupo.
   private void mensagemGrupo(Mensagem mensagem) {
     Grupo grupo = grupos.get(mensagem.getNomeGrupo());
     ClienteService remetente = clientes.get(mensagem.getRemetente());
 
     if (grupo != null && grupo.eMembro(mensagem.getRemetente())) {
-      // Enviar para todos os membros do grupo (exceto o remetente)
+      // Enviar para todos os membros do grupo (exceto o remetente).
       for (String membro : grupo.getMembros()) {
         if (!membro.equals(mensagem.getRemetente())) {
           ClienteService membroInfo = clientes.get(membro);
@@ -246,8 +257,9 @@ public class Servidor {
     }
   }
 
+  // Realiza a transferência de arquivo entre clientes.
   private void transferenciaArquivo(Mensagem mensagem) {
-    // Salvar arquivo no servidor
+    // Salvar arquivo no servidor.
     try {
       String nomeArquivo = mensagem.getNomeArquivo();
       String caminhoArquivo = "arquivos_servidor/" + nomeArquivo;
@@ -256,7 +268,7 @@ public class Servidor {
 
       ClienteService remetente = clientes.get(mensagem.getRemetente());
 
-      // Enviar arquivo para destinatário ou grupo
+      // Enviar arquivo para destinatário ou grupo.
       if (mensagem.getDestinatario() != null) {
         ClienteService destinatario = clientes.get(mensagem.getDestinatario());
         if (destinatario != null && destinatario.isConectado()) {
@@ -293,6 +305,7 @@ public class Servidor {
     }
   }
 
+  // Cria um novo grupo de chat.
   private void criarGrupo(Mensagem mensagem, ClienteService clienteService) {
     String nomeGrupo = mensagem.getNomeGrupo();
 
@@ -311,6 +324,7 @@ public class Servidor {
     enviarMensagem(resposta, clienteService);
   }
 
+  // Adiciona o cliente a um grupo existente.
   private void entrarGrupo(Mensagem mensagem, ClienteService clienteService) {
     String nomeGrupo = mensagem.getNomeGrupo();
     String usuario = clienteService.getNomeUsuario();
@@ -328,6 +342,7 @@ public class Servidor {
     }
   }
 
+  // Envia uma mensagem para o cliente.
   private void enviarMensagem(Mensagem mensagem, ClienteService clienteService) {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -337,13 +352,13 @@ public class Servidor {
 
       byte[] dados = baos.toByteArray();
       ByteBuffer buffer = ByteBuffer.allocate(4 + dados.length);
-      buffer.putInt(dados.length); // Tamanho da mensagem
+      buffer.putInt(dados.length);
       buffer.put(dados);
       buffer.flip();
 
       clienteService.adicionarParaEscrita(buffer);
 
-      // Marcar canal para escrita
+      // Marcar canal para escrita.
       SelectionKey key = clienteService.getChannel().keyFor(selector);
       if (key != null && key.isValid()) {
         key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
@@ -354,6 +369,7 @@ public class Servidor {
     }
   }
 
+  // Fecha a conexão com o cliente e limpa recursos.
   private void fecharConexao(SelectionKey key) {
     try {
       ClienteService clienteService = (ClienteService) key.attachment();
@@ -363,7 +379,7 @@ public class Servidor {
         if (nomeUsuario != null) {
           clientes.remove(nomeUsuario);
 
-          // Remover usuario de todos os grupos
+          // Remover usuario de todos os grupos.
           for (Grupo grupo : grupos.values()) {
             grupo.removerMembro(nomeUsuario);
           }
@@ -382,6 +398,7 @@ public class Servidor {
     }
   }
 
+  // Para o servidor e libera recursos.
   public void parar() {
     executando = false;
     try {
@@ -396,10 +413,10 @@ public class Servidor {
     }
   }
 
+  // Método principal para iniciar o servidor.
   public static void main(String[] args) {
     Servidor servidor = new Servidor();
 
-    // Adicionar shutdown hook para parar o servidor
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {
       System.out.println("\nParando servidor...");
       servidor.parar();
@@ -408,3 +425,4 @@ public class Servidor {
     servidor.iniciar();
   }
 }
+

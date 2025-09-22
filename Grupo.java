@@ -26,4 +26,12 @@ public class Grupo {
   public synchronized Set<String> getMembros() {
     return new HashSet<>(membros);
   }
+
+  public String getNome() {
+    return nome;
+  }
+
+  public synchronized int getTamanho() {
+    return membros.size();
+  }
 }

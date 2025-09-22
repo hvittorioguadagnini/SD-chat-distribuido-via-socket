@@ -11,7 +11,7 @@ public class Servidor {
 
   private Selector selector;
   private ServerSocketChannel serverChannel;
-  private Map<String, ClienteInfo> clientes;
+  private Map<String, ClienteService> clientes;
   private Map<String, Grupo> grupos;
   private boolean executando;
 
@@ -30,8 +30,8 @@ public class Servidor {
       serverChannel.register(selector, SelectionKey.OP_ACCEPT);
 
       executando = true;
-      System.out.println("Servidor NIO iniciado na porta " + PORTA);
-      System.out.println("Aguardando conexões...\n");
+      System.out.println("Servidor iniciado na porta " + PORTA);
+      System.out.println("Aguardando conexoes\n");
 
       // Loop principal - single thread
       while (executando) {
@@ -79,8 +79,8 @@ public class Servidor {
       clientChannel.configureBlocking(false);
       SelectionKey clientKey = clientChannel.register(selector, SelectionKey.OP_READ);
 
-      ClienteInfo clienteInfo = new ClienteInfo(clientChannel);
-      clientKey.attach(clienteInfo);
+      ClienteService clienteService = new ClienteService(clientChannel);
+      clientKey.attach(clienteService);
 
       System.out.println("Nova conexão aceita de: " + clientChannel.getRemoteAddress());
     }
@@ -88,9 +88,9 @@ public class Servidor {
 
   private void lerDados(SelectionKey key) throws IOException {
     SocketChannel clientChannel = (SocketChannel) key.channel();
-    ClienteInfo clienteInfo = (ClienteInfo) key.attachment();
+    ClienteService clienteService = (ClienteService) key.attachment();
 
-    if (clienteInfo == null) {
+    if (clienteService == null) {
       fecharConexao(key);
       return;
     }
@@ -106,33 +106,33 @@ public class Servidor {
 
     if (bytesRead > 0) {
       buffer.flip();
-      clienteInfo.adicionarDados(buffer);
+      clienteService.adicionarDados(buffer);
 
       // Tentar processar mensagens completas
       Mensagem mensagem;
-      while ((mensagem = clienteInfo.lerMensagem()) != null) {
-        processarMensagem(mensagem, clienteInfo, key);
+      while ((mensagem = clienteService.lerMensagem()) != null) {
+        processarMensagem(mensagem, clienteService, key);
       }
     }
   }
 
   private void escreverDados(SelectionKey key) throws IOException {
     SocketChannel clientChannel = (SocketChannel) key.channel();
-    ClienteInfo clienteInfo = (ClienteInfo) key.attachment();
+    ClienteService clienteService = (ClienteService) key.attachment();
 
-    if (clienteInfo == null) {
+    if (clienteService == null) {
       fecharConexao(key);
       return;
     }
 
-    ByteBuffer buffer = clienteInfo.getBufferEscrita();
+    ByteBuffer buffer = clienteService.getBufferEscrita();
     if (buffer != null && buffer.hasRemaining()) {
       clientChannel.write(buffer);
 
       if (!buffer.hasRemaining()) {
         // Escrita completa, remover interesse em escrita
         key.interestOps(SelectionKey.OP_READ);
-        clienteInfo.limparBufferEscrita();
+        clienteService.limparBufferEscrita();
       }
     } else {
       // Nada para escrever
@@ -140,13 +140,13 @@ public class Servidor {
     }
   }
 
-  private void processarMensagem(Mensagem mensagem, ClienteInfo clienteInfo, SelectionKey key) {
+  private void processarMensagem(Mensagem mensagem, ClienteService clienteService, SelectionKey key) {
     switch (mensagem.getTipo()) {
       case LOGIN:
-        login(mensagem, clienteInfo, key);
+        login(mensagem, clienteService, key);
         break;
       case LOGOUT:
-        logout(clienteInfo, key);
+        logout(clienteService, key);
         break;
       case MENSAGEM_PRIVADA:
         mensagemPrivada(mensagem);
@@ -158,45 +158,45 @@ public class Servidor {
         transferenciaArquivo(mensagem);
         break;
       case CRIAR_GRUPO:
-        criarGrupo(mensagem, clienteInfo);
+        criarGrupo(mensagem, clienteService);
         break;
       case ENTRAR_GRUPO:
-        entrarGrupo(mensagem, clienteInfo);
+        entrarGrupo(mensagem, clienteService);
         break;
     }
   }
 
-  private void login(Mensagem mensagem, ClienteInfo clienteInfo, SelectionKey key) {
+  private void login(Mensagem mensagem, ClienteService clienteService, SelectionKey key) {
     String usuarioSolicitado = mensagem.getRemetente();
 
     if (usuarioSolicitado == null || usuarioSolicitado.trim().isEmpty() ||
         clientes.containsKey(usuarioSolicitado)) {
 
       Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.ERRO);
-      resposta.setConteudo("ERRO: Nome de usuário já está sendo usado ou é inválido.");
+      resposta.setConteudo("ERRO: Nome de usuario já está sendo usado ou é inválido.");
       resposta.setSucesso(false);
-      enviarMensagem(resposta, clienteInfo);
+      enviarMensagem(resposta, clienteService);
       fecharConexao(key);
       return;
     }
 
-    clienteInfo.setNomeUsuario(usuarioSolicitado);
-    clientes.put(usuarioSolicitado, clienteInfo);
+    clienteService.setNomeUsuario(usuarioSolicitado);
+    clientes.put(usuarioSolicitado, clienteService);
 
     Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.SUCESSO);
     resposta.setConteudo("Login realizado com sucesso como: " + usuarioSolicitado);
-    enviarMensagem(resposta, clienteInfo);
+    enviarMensagem(resposta, clienteService);
 
     System.out.println("Cliente conectado: " + usuarioSolicitado);
   }
 
-  private void logout(ClienteInfo clienteInfo, SelectionKey key) {
+  private void logout(ClienteService clienteService, SelectionKey key) {
     fecharConexao(key);
   }
 
   private void mensagemPrivada(Mensagem mensagem) {
-    ClienteInfo destinatario = clientes.get(mensagem.getDestinatario());
-    ClienteInfo remetente = clientes.get(mensagem.getRemetente());
+    ClienteService destinatario = clientes.get(mensagem.getDestinatario());
+    ClienteService remetente = clientes.get(mensagem.getRemetente());
 
     if (destinatario != null && destinatario.isConectado()) {
       enviarMensagem(mensagem, destinatario);
@@ -209,7 +209,7 @@ public class Servidor {
     } else {
       if (remetente != null) {
         Mensagem erro = new Mensagem(Mensagem.TipoMensagem.ERRO);
-        erro.setConteudo("Usuário não encontrado ou offline: " + mensagem.getDestinatario());
+        erro.setConteudo("Usuario não encontrado ou offline: " + mensagem.getDestinatario());
         erro.setSucesso(false);
         enviarMensagem(erro, remetente);
       }
@@ -218,13 +218,13 @@ public class Servidor {
 
   private void mensagemGrupo(Mensagem mensagem) {
     Grupo grupo = grupos.get(mensagem.getNomeGrupo());
-    ClienteInfo remetente = clientes.get(mensagem.getRemetente());
+    ClienteService remetente = clientes.get(mensagem.getRemetente());
 
     if (grupo != null && grupo.eMembro(mensagem.getRemetente())) {
       // Enviar para todos os membros do grupo (exceto o remetente)
       for (String membro : grupo.getMembros()) {
         if (!membro.equals(mensagem.getRemetente())) {
-          ClienteInfo membroInfo = clientes.get(membro);
+          ClienteService membroInfo = clientes.get(membro);
           if (membroInfo != null && membroInfo.isConectado()) {
             enviarMensagem(mensagem, membroInfo);
           }
@@ -254,11 +254,11 @@ public class Servidor {
       java.nio.file.Files.createDirectories(java.nio.file.Paths.get("arquivos_servidor"));
       java.nio.file.Files.write(java.nio.file.Paths.get(caminhoArquivo), mensagem.getDadosArquivo());
 
-      ClienteInfo remetente = clientes.get(mensagem.getRemetente());
+      ClienteService remetente = clientes.get(mensagem.getRemetente());
 
       // Enviar arquivo para destinatário ou grupo
       if (mensagem.getDestinatario() != null) {
-        ClienteInfo destinatario = clientes.get(mensagem.getDestinatario());
+        ClienteService destinatario = clientes.get(mensagem.getDestinatario());
         if (destinatario != null && destinatario.isConectado()) {
           enviarMensagem(mensagem, destinatario);
         }
@@ -267,7 +267,7 @@ public class Servidor {
         if (grupo != null && grupo.eMembro(mensagem.getRemetente())) {
           for (String membro : grupo.getMembros()) {
             if (!membro.equals(mensagem.getRemetente())) {
-              ClienteInfo membroInfo = clientes.get(membro);
+              ClienteService membroInfo = clientes.get(membro);
               if (membroInfo != null && membroInfo.isConectado()) {
                 enviarMensagem(mensagem, membroInfo);
               }
@@ -283,7 +283,7 @@ public class Servidor {
       }
 
     } catch (IOException e) {
-      ClienteInfo remetente = clientes.get(mensagem.getRemetente());
+      ClienteService remetente = clientes.get(mensagem.getRemetente());
       if (remetente != null) {
         Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.ERRO);
         resposta.setConteudo("ERRO: Falha ao processar arquivo - " + e.getMessage());
@@ -293,14 +293,14 @@ public class Servidor {
     }
   }
 
-  private void criarGrupo(Mensagem mensagem, ClienteInfo clienteInfo) {
+  private void criarGrupo(Mensagem mensagem, ClienteService clienteService) {
     String nomeGrupo = mensagem.getNomeGrupo();
 
     if (nomeGrupo == null || nomeGrupo.trim().isEmpty() || grupos.containsKey(nomeGrupo)) {
       Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.ERRO);
       resposta.setConteudo("ERRO: Grupo já existe ou nome inválido: " + nomeGrupo);
       resposta.setSucesso(false);
-      enviarMensagem(resposta, clienteInfo);
+      enviarMensagem(resposta, clienteService);
       return;
     }
 
@@ -308,27 +308,27 @@ public class Servidor {
 
     Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.SUCESSO);
     resposta.setConteudo("Grupo criado com sucesso: " + nomeGrupo);
-    enviarMensagem(resposta, clienteInfo);
+    enviarMensagem(resposta, clienteService);
   }
 
-  private void entrarGrupo(Mensagem mensagem, ClienteInfo clienteInfo) {
+  private void entrarGrupo(Mensagem mensagem, ClienteService clienteService) {
     String nomeGrupo = mensagem.getNomeGrupo();
-    String usuario = clienteInfo.getNomeUsuario();
+    String usuario = clienteService.getNomeUsuario();
 
     Grupo grupo = grupos.get(nomeGrupo);
     if (grupo != null && grupo.adicionarMembro(usuario)) {
       Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.SUCESSO);
       resposta.setConteudo("Você entrou no grupo: " + nomeGrupo);
-      enviarMensagem(resposta, clienteInfo);
+      enviarMensagem(resposta, clienteService);
     } else {
       Mensagem resposta = new Mensagem(Mensagem.TipoMensagem.ERRO);
       resposta.setConteudo("ERRO: Não foi possível entrar no grupo: " + nomeGrupo);
       resposta.setSucesso(false);
-      enviarMensagem(resposta, clienteInfo);
+      enviarMensagem(resposta, clienteService);
     }
   }
 
-  private void enviarMensagem(Mensagem mensagem, ClienteInfo clienteInfo) {
+  private void enviarMensagem(Mensagem mensagem, ClienteService clienteService) {
     try {
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       ObjectOutputStream oos = new ObjectOutputStream(baos);
@@ -341,10 +341,10 @@ public class Servidor {
       buffer.put(dados);
       buffer.flip();
 
-      clienteInfo.adicionarParaEscrita(buffer);
+      clienteService.adicionarParaEscrita(buffer);
 
       // Marcar canal para escrita
-      SelectionKey key = clienteInfo.getChannel().keyFor(selector);
+      SelectionKey key = clienteService.getChannel().keyFor(selector);
       if (key != null && key.isValid()) {
         key.interestOps(SelectionKey.OP_READ | SelectionKey.OP_WRITE);
       }
@@ -356,14 +356,14 @@ public class Servidor {
 
   private void fecharConexao(SelectionKey key) {
     try {
-      ClienteInfo clienteInfo = (ClienteInfo) key.attachment();
+      ClienteService clienteService = (ClienteService) key.attachment();
 
-      if (clienteInfo != null) {
-        String nomeUsuario = clienteInfo.getNomeUsuario();
+      if (clienteService != null) {
+        String nomeUsuario = clienteService.getNomeUsuario();
         if (nomeUsuario != null) {
           clientes.remove(nomeUsuario);
 
-          // Remover usuário de todos os grupos
+          // Remover usuario de todos os grupos
           for (Grupo grupo : grupos.values()) {
             grupo.removerMembro(nomeUsuario);
           }
@@ -371,7 +371,7 @@ public class Servidor {
           System.out.println("Cliente desconectado: " + nomeUsuario);
         }
 
-        clienteInfo.fechar();
+        clienteService.fechar();
       }
 
       key.cancel();

@@ -1,9 +1,12 @@
 import java.io.Serializable;
 
+// Classe para representar uma mensagem no sistema de chat.
 public class Mensagem implements Serializable {
 
+  // Serial version UID para compatibilidade de serialização.
   private static final long serialVersionUID = 1L;
 
+  // Tipos de mensagens suportados.
   public enum TipoMensagem {
     LOGIN, LOGOUT, MENSAGEM_PRIVADA, MENSAGEM_GRUPO, TRANSFERENCIA_ARQUIVO,
     CRIAR_GRUPO, ENTRAR_GRUPO, STATUS, SUCESSO, ERRO
@@ -18,16 +21,19 @@ public class Mensagem implements Serializable {
   private String nomeArquivo;
   private boolean sucesso;
 
+  // Construtor principal.
   public Mensagem(TipoMensagem tipo, String remetente) {
     this.tipo = tipo;
     this.remetente = remetente;
     this.sucesso = true;
   }
 
+  // Construtor para mensagens do servidor
   public Mensagem(TipoMensagem tipo) {
     this(tipo, "SERVIDOR");
   }
 
+  // Getters e Setters
   public TipoMensagem getTipo() {
     return tipo;
   }
@@ -80,3 +86,4 @@ public class Mensagem implements Serializable {
     this.sucesso = sucesso;
   }
 }
+

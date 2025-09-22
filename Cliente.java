@@ -9,6 +9,7 @@ import java.util.Scanner;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 
+// CLasse responsável pelo cliente do chat distribuído.
 public class Cliente {
   private static final String ENDERECO_SERVIDOR = "ec2-3-17-128-71.us-east-2.compute.amazonaws.com";
   private static final int PORTA_SERVIDOR = 8080;
@@ -22,6 +23,7 @@ public class Cliente {
   private ByteBuffer bufferLeitura;
   private int tamanhoMensagemEsperado = -1;
 
+  // Construtor da classe Cliente.
   public Cliente() {
     scanner = new Scanner(System.in);
     conectado = false;
@@ -29,13 +31,14 @@ public class Cliente {
     bufferLeitura = ByteBuffer.allocate(8192);
   }
 
+  // Inicia o cliente, conectando ao servidor e iniciando as threads de leitura e menu.
   public void iniciar() {
     try {
       socketChannel = SocketChannel.open();
       socketChannel.configureBlocking(false);
       socketChannel.connect(new InetSocketAddress(ENDERECO_SERVIDOR, PORTA_SERVIDOR));
 
-      // Aguardar conexao
+      // Aguardar conexão.
       while (!socketChannel.finishConnect()) {
         Thread.sleep(100);
       }
@@ -44,18 +47,18 @@ public class Cliente {
       System.out.println("Chat Distribuido com Comunicacao via Socket");
       System.out.println("Conectado ao servidor!");
 
-      // Login
+      // Login.
       fazerLogin();
 
-      // Iniciar thread para processar mensagens recebidas
+      // Iniciar thread para processar mensagens recebidas.
       threadLeitura = new Thread(this::processarMensagens);
       threadLeitura.start();
 
-      // Thread para ler dados do socket
+      // Thread para ler dados do socket.
       Thread threadSocket = new Thread(this::lerDoSocket);
       threadSocket.start();
 
-      // Menu principal
+      // Menu principal.
       mostrarMenu();
 
     } catch (IOException | InterruptedException e) {
@@ -65,6 +68,7 @@ public class Cliente {
     }
   }
 
+  // Lê dados do socket e adiciona à fila de mensagens.
   private void lerDoSocket() {
     ByteBuffer buffer = ByteBuffer.allocate(8192);
 
@@ -74,14 +78,14 @@ public class Cliente {
         int bytesRead = socketChannel.read(buffer);
 
         if (bytesRead == -1) {
-          // Servidor fechou a conexao
+          // Servidor fechou a conexão.
           conectado = false;
           break;
         } else if (bytesRead > 0) {
           buffer.flip();
           adicionarDados(buffer);
 
-          // Tentar processar mensagens completas
+          // Tentar processar mensagens completas.
           Mensagem mensagem;
           while ((mensagem = lerMensagem()) != null) {
             filaMensagens.offer(mensagem);
@@ -100,8 +104,9 @@ public class Cliente {
     }
   }
 
+  // Adiciona novos dados ao buffer de leitura.
   private void adicionarDados(ByteBuffer novosDados) {
-    // Expandir buffer se necessário
+    // Expandir buffer se necessário.
     if (bufferLeitura.remaining() < novosDados.remaining()) {
       int novaCapacidade = bufferLeitura.capacity() + novosDados.remaining();
       ByteBuffer novoBuffer = ByteBuffer.allocate(novaCapacidade);
@@ -114,11 +119,12 @@ public class Cliente {
     bufferLeitura.put(novosDados);
   }
 
+  // Lê uma mensagem completa do buffer de leitura, se disponível.
   private Mensagem lerMensagem() {
     bufferLeitura.flip();
 
     try {
-      // Se ainda nao sabemos o tamanho da mensagem
+      // Se ainda nao sabemos o tamanho da mensagem.
       if (tamanhoMensagemEsperado == -1) {
         if (bufferLeitura.remaining() < 4) {
           bufferLeitura.compact();
@@ -127,23 +133,23 @@ public class Cliente {
         tamanhoMensagemEsperado = bufferLeitura.getInt();
       }
 
-      // Verificar se temos a mensagem completa
+      // Verificar se temos a mensagem completa.
       if (bufferLeitura.remaining() < tamanhoMensagemEsperado) {
         bufferLeitura.compact();
         return null;
       }
 
-      // Ler a mensagem
+      // Ler a mensagem.
       byte[] dadosMensagem = new byte[tamanhoMensagemEsperado];
       bufferLeitura.get(dadosMensagem);
 
-      // Resetar para próxima mensagem
+      // Resetar para próxima mensagem.
       tamanhoMensagemEsperado = -1;
 
-      // Compactar buffer
+      // Compactar buffer.
       bufferLeitura.compact();
 
-      // Deserializar mensagem
+      // Deserializar mensagem.
       try (ByteArrayInputStream bais = new ByteArrayInputStream(dadosMensagem);
           ObjectInputStream ois = new ObjectInputStream(bais)) {
         return (Mensagem) ois.readObject();
@@ -156,6 +162,7 @@ public class Cliente {
     }
   }
 
+  // Processa mensagens recebidas da fila.
   private void processarMensagens() {
     while (conectado || !filaMensagens.isEmpty()) {
       try {
@@ -170,6 +177,7 @@ public class Cliente {
     }
   }
 
+  // Realiza o login do usuário.
   private void fazerLogin() {
     System.out.print("Digite seu nome de usuario: ");
     nomeUsuario = scanner.nextLine().trim();
@@ -178,6 +186,7 @@ public class Cliente {
     enviarMensagem(loginMsg);
   }
 
+  // Trata uma mensagem recebida do servidor.
   private void tratarMensagemRecebida(Mensagem msg) {
     switch (msg.getTipo()) {
       case MENSAGEM_PRIVADA:
@@ -205,6 +214,7 @@ public class Cliente {
     }
   }
 
+  // Recebe um arquivo e o salva localmente.
   private void receberArquivo(Mensagem msg) {
     try {
       String nomeArquivo = msg.getNomeArquivo();
@@ -222,6 +232,7 @@ public class Cliente {
     }
   }
 
+  // Mostra o menu principal e envia para o método que corresponde s opção do usuário.
   private void mostrarMenu() {
     System.out.println("\nMENU");
     System.out.println("1 = Enviar mensagem privada");
@@ -252,6 +263,7 @@ public class Cliente {
     }
   }
 
+  // Envia uma mensagem privada.
   private void enviarMensagemPrivada() {
     System.out.print("Destinatario: ");
     String destinatario = scanner.nextLine().trim();
@@ -266,6 +278,7 @@ public class Cliente {
     }
   }
 
+  // Envia uma mensagem para um grupo.
   private void enviarMensagemGrupo() {
     System.out.print("Nome do grupo: ");
     String nomeGrupo = scanner.nextLine().trim();
@@ -280,6 +293,7 @@ public class Cliente {
     }
   }
 
+  // Monta o arquivo para envio a um destinatário.
   private void enviarArquivoPrivado() {
     System.out.print("Destinatario: ");
     String destinatario = scanner.nextLine().trim();
@@ -290,6 +304,7 @@ public class Cliente {
     }
   }
 
+  // Monta o arquivo para envio um grupo.
   private void enviarArquivoGrupo() {
     System.out.print("Nome do grupo: ");
     String nomeGrupo = scanner.nextLine().trim();
@@ -300,6 +315,7 @@ public class Cliente {
     }
   }
 
+  // Envia um arquivo para um destinatário ou grupo.
   private void enviarArquivo(String destinatario, String nomeGrupo, String caminho) {
     try {
       Path path = Paths.get(caminho);
@@ -333,6 +349,7 @@ public class Cliente {
     }
   }
 
+  // Cria um novo grupo.
   private void criarGrupo() {
     System.out.print("Nome do grupo: ");
     String nomeGrupo = scanner.nextLine().trim();
@@ -344,6 +361,7 @@ public class Cliente {
     }
   }
 
+  // Entra em um grupo existente.
   private void entrarGrupo() {
     System.out.print("Nome do grupo: ");
     String nomeGrupo = scanner.nextLine().trim();
@@ -355,12 +373,14 @@ public class Cliente {
     }
   }
 
+  // Sai do chat, enviando uma mensagem de logout ao servidor.
   private void sair() {
     Mensagem msg = new Mensagem(Mensagem.TipoMensagem.LOGOUT, nomeUsuario);
     enviarMensagem(msg);
     desconectar();
   }
 
+  // Envia uma mensagem de verificação de conexão ao servidor.
   private void enviarMensagem(Mensagem msg) {
     try {
       if (!conectado || !socketChannel.isOpen()) {
@@ -368,7 +388,7 @@ public class Cliente {
         return;
       }
 
-      // Serializar mensagem
+      // Serializar mensagem.
       ByteArrayOutputStream baos = new ByteArrayOutputStream();
       ObjectOutputStream oos = new ObjectOutputStream(baos);
       oos.writeObject(msg);
@@ -376,7 +396,7 @@ public class Cliente {
 
       byte[] dados = baos.toByteArray();
       ByteBuffer buffer = ByteBuffer.allocate(4 + dados.length);
-      buffer.putInt(dados.length); // Tamanho da mensagem
+      buffer.putInt(dados.length);
       buffer.put(dados);
       buffer.flip();
 
@@ -384,7 +404,7 @@ public class Cliente {
       while (buffer.hasRemaining()) {
         int bytesWritten = socketChannel.write(buffer);
         if (bytesWritten == 0) {
-          Thread.sleep(10); // Aguardar socket estar pronto
+          Thread.sleep(10);
         }
       }
 
@@ -394,6 +414,7 @@ public class Cliente {
     }
   }
 
+  // Desconecta do servidor, fechando o socket e interrompendo threads.
   private void desconectar() {
     if (conectado) {
       conectado = false;
@@ -415,8 +436,10 @@ public class Cliente {
     }
   }
 
+  // Ponto de entrada do programa.
   public static void main(String[] args) {
     Cliente cliente = new Cliente();
     cliente.iniciar();
   }
 }
+

@@ -4,6 +4,7 @@ import java.nio.channels.SocketChannel;
 import java.util.LinkedList;
 import java.util.Queue;
 
+// Classe para armazenar informações do cliente.
 public class ClienteService {
   private SocketChannel channel;
   private String nomeUsuario;
@@ -13,6 +14,7 @@ public class ClienteService {
   private ByteBuffer bufferEscritaAtual;
   private int tamanhoMensagemEsperado = -1;
 
+  // Construtor da classe ClienteInfo.
   public ClienteService(SocketChannel channel) {
     this.channel = channel;
     this.conectado = true;
@@ -20,8 +22,8 @@ public class ClienteService {
     this.filaEscrita = new LinkedList<>();
   }
 
+  // Adiciona dados recebidos ao buffer de leitura.
   public void adicionarDados(ByteBuffer novosDados) {
-    // Expandir buffer se necessário
     if (bufferLeitura.remaining() < novosDados.remaining()) {
       int novaCapacidade = bufferLeitura.capacity() + novosDados.remaining();
       ByteBuffer novoBuffer = ByteBuffer.allocate(novaCapacidade);
@@ -34,38 +36,39 @@ public class ClienteService {
     bufferLeitura.put(novosDados);
   }
 
+  // Lê uma mensagem completa do buffer de leitura, se disponível.
   public Mensagem lerMensagem() {
     bufferLeitura.flip();
 
     try {
-      // Se ainda não sabemos o tamanho da mensagem
+      // Se ainda não sabemos o tamanho da mensagem.
       if (tamanhoMensagemEsperado == -1) {
         if (bufferLeitura.remaining() < 4) {
-          // Não temos bytes suficientes para ler o tamanho
+          // Não temos bytes suficientes para ler o tamanho.
           bufferLeitura.compact();
           return null;
         }
         tamanhoMensagemEsperado = bufferLeitura.getInt();
       }
 
-      // Verificar se temos a mensagem completa
+      // Verificar se temos a mensagem completa.
       if (bufferLeitura.remaining() < tamanhoMensagemEsperado) {
         // Mensagem incompleta
         bufferLeitura.compact();
         return null;
       }
 
-      // Ler a mensagem
+      // Ler a mensagem.
       byte[] dadosMensagem = new byte[tamanhoMensagemEsperado];
       bufferLeitura.get(dadosMensagem);
 
-      // Resetar para próxima mensagem
+      // Resetar para próxima mensagem.
       tamanhoMensagemEsperado = -1;
 
-      // Compactar buffer para proximas leituras
+      // Compactar buffer para proximas leituras.
       bufferLeitura.compact();
 
-      // Deserializar mensagem
+      // Deserializar mensagem.
       try (ByteArrayInputStream bais = new ByteArrayInputStream(dadosMensagem);
           ObjectInputStream ois = new ObjectInputStream(bais)) {
         return (Mensagem) ois.readObject();
@@ -78,12 +81,14 @@ public class ClienteService {
     }
   }
 
+  // Adiciona um buffer de escrita à fila.
   public void adicionarParaEscrita(ByteBuffer buffer) {
     synchronized (filaEscrita) {
       filaEscrita.offer(buffer);
     }
   }
 
+  // Obtém o próximo buffer de escrita, se disponível.
   public ByteBuffer getBufferEscrita() {
     synchronized (filaEscrita) {
       if (bufferEscritaAtual == null || !bufferEscritaAtual.hasRemaining()) {
@@ -93,12 +98,14 @@ public class ClienteService {
     }
   }
 
+  // Limpa o buffer de escrita atual após o envio completo.
   public void limparBufferEscrita() {
     synchronized (filaEscrita) {
       bufferEscritaAtual = null;
     }
   }
 
+  // Fecha a conexão do cliente.
   public void fechar() {
     conectado = false;
     try {
@@ -110,6 +117,7 @@ public class ClienteService {
     }
   }
 
+  // Getters e Setters
   public SocketChannel getChannel() {
     return channel;
   }
@@ -126,3 +134,4 @@ public class ClienteService {
     return conectado && channel.isOpen();
   }
 }
+

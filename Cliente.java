@@ -35,13 +35,13 @@ public class Cliente {
       socketChannel.configureBlocking(false);
       socketChannel.connect(new InetSocketAddress(ENDERECO_SERVIDOR, PORTA_SERVIDOR));
 
-      // Aguardar conexão
+      // Aguardar conexao
       while (!socketChannel.finishConnect()) {
         Thread.sleep(100);
       }
 
       conectado = true;
-      System.out.println("Chat Distribuído com Comunicação via Socket NIO");
+      System.out.println("Chat Distribuido com Comunicacao via Socket");
       System.out.println("Conectado ao servidor!");
 
       // Login
@@ -74,7 +74,7 @@ public class Cliente {
         int bytesRead = socketChannel.read(buffer);
 
         if (bytesRead == -1) {
-          // Servidor fechou a conexão
+          // Servidor fechou a conexao
           conectado = false;
           break;
         } else if (bytesRead > 0) {
@@ -88,7 +88,7 @@ public class Cliente {
           }
         }
 
-        Thread.sleep(10); // Pequena pausa para não sobrecarregar CPU
+        Thread.sleep(10); // Pequena pausa para nao sobrecarregar CPU
 
       } catch (IOException | InterruptedException e) {
         if (conectado) {
@@ -118,7 +118,7 @@ public class Cliente {
     bufferLeitura.flip();
 
     try {
-      // Se ainda não sabemos o tamanho da mensagem
+      // Se ainda nao sabemos o tamanho da mensagem
       if (tamanhoMensagemEsperado == -1) {
         if (bufferLeitura.remaining() < 4) {
           bufferLeitura.compact();
@@ -171,7 +171,7 @@ public class Cliente {
   }
 
   private void fazerLogin() {
-    System.out.print("Digite seu nome de usuário: ");
+    System.out.print("Digite seu nome de usuario: ");
     nomeUsuario = scanner.nextLine().trim();
 
     Mensagem loginMsg = new Mensagem(Mensagem.TipoMensagem.LOGIN, nomeUsuario);
@@ -223,7 +223,7 @@ public class Cliente {
   }
 
   private void mostrarMenu() {
-    System.out.println("\n=== MENU ===");
+    System.out.println("\nMENU");
     System.out.println("1 = Enviar mensagem privada");
     System.out.println("2 = Enviar mensagem para grupo");
     System.out.println("3 = Enviar arquivo privado");
@@ -231,7 +231,6 @@ public class Cliente {
     System.out.println("5 = Criar grupo");
     System.out.println("6 = Entrar em grupo");
     System.out.println("0 = Sair");
-    System.out.println("===============\n");
 
     while (conectado) {
       System.out.print("> ");
@@ -248,13 +247,13 @@ public class Cliente {
         case "menu":
         case "ajuda": mostrarMenu(); break;
         default:
-          System.out.println("Opção inválida! Digite 'menu' para ver as opções novamente.");
+          System.out.println("Opcao invalida! Digite 'menu' para ver as opcoes novamente.");
       }
     }
   }
 
   private void enviarMensagemPrivada() {
-    System.out.print("Destinatário: ");
+    System.out.print("Destinatario: ");
     String destinatario = scanner.nextLine().trim();
     System.out.print("Mensagem: ");
     String conteudo = scanner.nextLine().trim();
@@ -282,7 +281,7 @@ public class Cliente {
   }
 
   private void enviarArquivoPrivado() {
-    System.out.print("Destinatário: ");
+    System.out.print("Destinatario: ");
     String destinatario = scanner.nextLine().trim();
     System.out.print("Caminho do arquivo: ");
     String caminho = scanner.nextLine().trim();
@@ -306,7 +305,7 @@ public class Cliente {
       Path path = Paths.get(caminho);
 
       if (!Files.exists(path)) {
-        System.out.println("Arquivo não encontrado: " + caminho);
+        System.out.println("Arquivo nao encontrado: " + caminho);
         return;
       }
 
@@ -365,7 +364,7 @@ public class Cliente {
   private void enviarMensagem(Mensagem msg) {
     try {
       if (!conectado || !socketChannel.isOpen()) {
-        System.err.println("Não conectado ao servidor");
+        System.err.println("Nao conectado ao servidor");
         return;
       }
 
@@ -409,7 +408,7 @@ public class Cliente {
         }
 
       } catch (IOException e) {
-        System.err.println("Erro ao fechar conexão: " + e.getMessage());
+        System.err.println("Erro ao fechar conexao: " + e.getMessage());
       }
 
       System.out.println("Desconectado do servidor.");

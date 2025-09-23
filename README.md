@@ -39,7 +39,9 @@ javac *.java
 ### 2. Iniciar o servidor
 
 ```bash
+Se for rodar localmente, será necessário trocar o ENDERECO_SERVIDOR da classe Cliente para "localhost" e depois executar o comando:
 java Servidor
+Para rodar pelo endereço da AWS configurado é necessário ter as outras configurações no computador.
 ```
 
 ### 3. Abrir um ou mais clientes
